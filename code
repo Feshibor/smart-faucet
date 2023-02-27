@@ -1,0 +1,468 @@
+#include <EEPROM.h>
+#include <LiquidCrystal.h> 
+#include <microDS18B20.h>
+MicroDS18B20<13> sensor;
+const int rs = 8, en = 9, d4 = 4, d5 = 5, d6 = 6, d7 = 7;
+LiquidCrystal lcd (rs, en, d4, d5, d6, d7);
+byte options1[] = {
+  B00000,
+  B00000,
+  B00000,
+  B01111,
+  B10000,
+  B10011,
+  B10100,
+  B10101
+};
+byte options2[] = {
+  B10101,
+  B10100,
+  B10011,
+  B10000,
+  B01111,
+  B00000,
+  B00000,
+  B00000
+};
+byte options[] = {  
+  B00000,
+  B00000,
+  B00000,
+  B11110,
+  B00001,
+  B11001,
+  B00101,
+  B10101
+};
+byte options3[] = {
+  B10101,
+  B00101,
+  B11001,
+  B00001,
+  B11110,
+  B00000,
+  B00000,
+  B00000
+};
+byte profiles0[] = {
+  B00000,
+  B00000,
+  B00001,
+  B00011,
+  B00111,
+  B00111,
+  B00011,
+  B00001
+};
+byte profiles1[] = {
+  B00000,
+  B00000,
+  B10000,
+  B11000,
+  B11100,
+  B11100,
+  B11000,
+  B10000
+};
+byte profiles3[] = {
+  B10000,
+  B11000,
+  B11100,
+  B11110,
+  B11111,
+  B00000,
+  B00000,
+  B00000
+};
+byte profiles2[] = {
+  B00001,
+  B00011,
+  B00111,
+  B01111,
+  B11111,
+  B00000,
+  B00000,
+  B00000
+};
+
+#define btnRIGHT  0
+#define btnLEFT   1
+#define btnUP     2
+#define btnDOWN   3
+#define btnSELECT 4
+#define btnNONE   5
+int ledPin4 = A4; 
+int ledPin3 = A3; 
+int ledPin2 = A2; 
+int ledPin1 = A1; 
+int Tnow = 25;
+int Tmin=EEPROM[5];
+int Tmax=EEPROM[6];
+int Tstatus = 0;
+int Ostatus = 0;
+int selection = 0;
+int Pstatus = 0;
+int PUDmove = 0;
+int OUDmove = 0;
+int PLRmove = 0;
+int TemP1 ;
+int TemP2 ;
+int TemP3 ;
+int TemP4 ;
+int TePST1 = 0;
+int TePST2 = 0;
+int TePST3 = 0;
+int TePST4 = 0;
+int stp = 0;
+int stp1 = 0;
+int read_LCD_buttons() {
+  int adc_key_in = analogRead(0); //прочитаем значение с Analog 0
+
+  // Проверяем значения друг за другом
+  if (adc_key_in > 1000) return btnNONE;
+  if (adc_key_in < 50)   return btnRIGHT;   
+  if (adc_key_in < 195)  return btnUP; 
+  if (adc_key_in < 380)  return btnDOWN;
+  if (adc_key_in < 555)  return btnLEFT;
+  if (adc_key_in < 790)  return btnSELECT;  
+  
+  return btnNONE;  // Не нажата ни одна из кнопок
+  delay (1000);
+}
+
+void setup () {
+  pinMode(ledPin1, OUTPUT);  
+  pinMode(ledPin2, OUTPUT);  
+  pinMode(ledPin3, OUTPUT);  
+  pinMode(ledPin4, OUTPUT);  
+  lcd.createChar(1, options);
+  lcd.createChar(0, options1);
+  lcd.createChar(2, options2);
+  lcd.createChar(3, options3);
+  lcd.createChar(4, profiles0);
+  lcd.createChar(5, profiles1);
+  lcd.createChar(6, profiles2);
+  lcd.createChar(7, profiles3);
+  Serial.begin(9600);
+  pinMode (12, OUTPUT);
+  lcd.begin (16, 2); // Задаём размер экрана
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("Welcome!"); // Выводим приветственное сообщение
+  delay (100); // Ждём 2000 миллисекунд (2 секунды)
+  digitalWrite (12, HIGH); // Включаем подсветку дисплея
+  displayMenu(); // Выводим главное меню
+}
+// Функция вывода главного меню
+void displayMenu(){
+  lcd.clear (); // Очищаем экран
+ 
+  // Выводим меню
+
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C now="); // Выводим заголовок
+  lcd.print (sensor.getTempInt()); // Выводим заголовок
+  lcd.setCursor (0, 1); // Задаём положение курсора
+  
+  // Выводим пункты меню
+  if (selection == 0){   
+    lcd.print ("change C="); // Выделяем пункт меню
+    lcd.print (Tnow);  
+    }
+  else{ 
+
+    lcd.print ("C need="); // Не выделяем пункт меню 
+    lcd.print (Tnow); 
+  }
+  
+  if (selection == 1){
+    lcd.setCursor (11, 0); // Перемещаем курсор в заданную позицию
+    lcd.print("Pr");
+    //lcd.write ((byte)4); // Не выделяем пункт меню  
+    //lcd.write ((byte)5); // Не выделяем пункт меню    
+    //lcd.setCursor (11, 1); // Перемещаем курсор в заданную позицию    
+    //lcd.write ((byte)6); // Не выделяем пункт меню  
+    //lcd.write ((byte)7); // Не выделяем пункт меню
+  }  
+  else{
+    lcd.setCursor (11, 0); // Перемещаем курсор в заданную позицию
+    lcd.write ((byte)4); // Не выделяем пункт меню  
+    lcd.write ((byte)5); // Не выделяем пункт меню    
+    lcd.setCursor (11, 1); // Перемещаем курсор в заданную позицию    
+    lcd.write ((byte)6); // Не выделяем пункт меню  
+    lcd.write ((byte)7); // Не выделяем пункт меню 
+  } 
+  
+  if (selection == 2){
+    lcd.setCursor (14, 0); // Перемещаем курсор в заданную позицию
+    lcd.print("OP");
+    //lcd.write ((byte)0); // Не выделяем пункт меню  
+    //lcd.write ((byte)1); // Не выделяем пункт меню    
+    //lcd.setCursor (14, 1); // Перемещаем курсор в заданную позицию    
+    //lcd.write ((byte)2); // Не выделяем пункт меню  
+    //lcd.write ((byte)3); // Не выделяем пункт меню     
+  }  
+  else {
+    lcd.setCursor (14, 0); // Перемещаем курсор в заданную позицию
+    lcd.write ((byte)0); // Не выделяем пункт меню  
+    lcd.write ((byte)1); // Не выделяем пункт меню    
+    lcd.setCursor (14, 1); // Перемещаем курсор в заданную позицию    
+    lcd.write ((byte)2); // Не выделяем пункт меню  
+    lcd.write ((byte)3); // Не выделяем пункт меню    
+  }
+}
+
+void loop () {
+  EEPROM.put(5, Tmin);
+  EEPROM.put(6, Tmax);
+   // запрос температуры  
+  sensor.requestTemp();
+  int key = read_LCD_buttons(); // Читаем состояние кнопок
+  if (EEPROM[1] < Tmin|| EEPROM[1] > Tmax){
+  TemP1=25;
+  }
+  if (EEPROM[2] < Tmin || EEPROM[2] > Tmax){
+  TemP2=25;
+  }
+  if (EEPROM[3] < Tmin || EEPROM[3] > Tmax){
+  TemP3=25;
+  }
+  if (EEPROM[4] < Tmin || EEPROM[4] > Tmax){
+  TemP4=25;
+  }
+  // Проверяем, были ли нажаты кнопки, и если да, то реагируем на них
+  if (key == btnLEFT && selection > 0 && Pstatus < 2 ) {
+    selection-=1; // Уменьшаем номер выбранного раздела
+    displayMenu(); // Отображаем меню
+    Ostatus=0;
+  }
+  if (key == btnLEFT && Pstatus > 0 && PLRmove > 0 && Ostatus ==0) {
+    PLRmove-=1;
+  }
+  if (key == btnRIGHT && selection < 2 && Pstatus < 2 && Ostatus ==0) {
+    selection+=1; // Увеличиваем номер выбранного раздела
+    displayMenu(); // Отображаем меню
+  }    
+  if (key == btnDOWN  && OUDmove < 1 && Ostatus >0) {
+    OUDmove+=1;
+  }
+  if (key == btnRIGHT && OUDmove > 0 && Ostatus >0) {
+    OUDmove-=1;
+  }
+  if (key == btnRIGHT && Pstatus > 0 && PLRmove < 1 && Ostatus ==0) {
+    PLRmove+=1;
+  }
+  if (key == btnSELECT && Pstatus < 2  && Ostatus < 2 && Ostatus ==0) {    
+    if(selection==0  && Ostatus == 0){
+      Tstatus=Tstatus+2;             
+      if (Tstatus > 2) {
+        Tstatus=0;
+      }   
+    }   
+    if (key == btnSELECT && Pstatus < 2 && selection == 1  ) {
+      Pstatus=Pstatus+2;             
+      lcd.clear (); // Очищаем экран  
+      lcd.setCursor (0, 0); // Задаём положение курсора
+      lcd.print ("Prof #1"); // Выводим заголовок
+      lcd.setCursor (9,0); // Задаём положение курсора
+      lcd.print ("Prof #2"); // Выводим заголовок
+      lcd.setCursor (0, 1); // Задаём положение курсора
+      lcd.print ("Prof #3"); // Выводим заголовок
+      lcd.setCursor (9, 1); // Задаём положение курсора
+      lcd.print ("Prof #4"); // Выводим заголовок
+    }       
+    if (key == btnSELECT && Pstatus < 2  && selection == 2 && Ostatus ==0) {
+      Ostatus=Ostatus+2;             
+      lcd.clear (); // Очищаем экран  
+      lcd.setCursor (0, 0); // Задаём положение курсора
+      lcd.print ("Delete limit C"); // Выводим заголовок
+      lcd.blink();
+      lcd.setCursor (0, 1); // Задаём положение курсора
+      lcd.print ("Delete baze C"); // Выводим заголовок
+    }       
+  }
+  if (key == btnSELECT &&  Ostatus > 0) {
+    stp1+=1;
+    if(OUDmove == 0 && stp1>1){
+      Tmin=-99;
+      Tmax=999;
+      Ostatus=0;
+      stp=0;
+      displayMenu();
+    }
+  }
+  if (key == btnSELECT &&  Pstatus > 0) {   
+    stp+=1;
+    if(PUDmove == 0 && PLRmove ==0 && stp>1){//1
+      if(TePST1==0){    
+      TePST1+=1;
+      lcd.clear (); // Очищаем экран  
+      lcd.setCursor (0, 0); // Задаём положение курсора
+      lcd.print ("C save="); // Выводим заголовок
+      lcd.print (TemP1); // Выводим заголовок
+      }
+      else{
+      Pstatus=0;
+      PUDmove=0;
+      PLRmove=0;
+      stp=0;  
+      EEPROM.put(1, TemP1);
+      TePST1=0; 
+      Tnow=EEPROM[1];        
+      displayMenu();
+      }
+    }
+    if(PUDmove == 0 && PLRmove ==1 && stp>1){//2
+      if(TePST2==0){    
+      TePST2+=1;
+      lcd.clear (); // Очищаем экран  
+      lcd.setCursor (0, 0); // Задаём положение курсора
+      lcd.print ("C save="); // Выводим заголовок
+      lcd.print (TemP2); // Выводим заголовок
+      }
+      else{
+      Pstatus=0;
+      PUDmove=0;
+      PLRmove=0;
+      stp=0;
+      EEPROM.put(2, TemP2);
+      TePST2=0;  
+      Tnow=EEPROM[2];
+      displayMenu();
+      }      
+    }
+    if(PUDmove == 1 && PLRmove ==0 && stp>1){//3
+      if(TePST3==0){    
+      TePST3+=1;
+      lcd.clear (); // Очищаем экран  
+      lcd.setCursor (0, 0); // Задаём положение курсора
+      lcd.print ("C save="); // Выводим заголовок
+      lcd.print (TemP3); // Выводим заголовок
+      }
+      else{
+      Pstatus=0;
+      PUDmove=0;
+      PLRmove=0;
+      stp=0;
+      EEPROM.put(3, TemP3);
+      TePST3=0;  
+      Tnow=EEPROM[3];
+      displayMenu();
+      }
+    }      
+    if(PUDmove == 1 && PLRmove ==1 && stp>1){//4
+      if(TePST4==0){    
+      TePST4+=1;
+      lcd.clear (); // Очищаем экран  
+      lcd.setCursor (0, 0); // Задаём положение курсора
+      lcd.print ("C save="); // Выводим заголовок
+      lcd.print (TemP4); // Выводим заголовок
+      }
+      else{
+      Pstatus=0;
+      PUDmove=0;
+      PLRmove=0;
+      stp=0;
+      EEPROM.put(4, TemP4);
+      TePST4=0;  
+      Tnow=EEPROM[4];
+      displayMenu();
+      }
+    }
+  }  
+  if (key == btnUP && Tstatus > 0 && Tnow < Tmax) {
+    Tnow=Tnow+1; // Уменьшаем номер выбранного раздела
+    lcd.setCursor (0, 1); // Задаём положение курсора
+    lcd.print ("changing="); // Не выделяем пункт меню 
+    lcd.print (Tnow);      
+  }
+  if (key == btnDOWN && Pstatus > 0 && TePST1>0 && TemP1> Tmin) {    
+  lcd.clear();
+  TemP1-=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP1); // Выводим заголовок
+  }
+  if (key == btnDOWN && Pstatus > 0 && TePST2>0 && TemP2 > Tmin) {    
+  lcd.clear();
+  TemP2-=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP2); // Выводим заголовок
+  }
+  if (key == btnDOWN && Pstatus > 0 && TePST3>0 && TemP3 > Tmin) {    
+  lcd.clear();
+  TemP3-=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP3); // Выводим заголовок
+     
+  }
+  if (key == btnDOWN && Pstatus > 0 && TePST4>0 &&TemP4 > Tmin) {    
+  lcd.clear();
+  TemP4-=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP4); // Выводим заголовок
+  }
+  if (key == btnDOWN && Pstatus > 0 && PUDmove == 0) {  
+  PUDmove+=1;
+  }   
+  else if (key == btnUP && Pstatus > 0 && PUDmove == 1) {  
+  PUDmove-=1;
+  }     
+  if (key == btnUP && Pstatus > 0 && TePST1>0 && TemP1< Tmax) {    
+  lcd.clear();
+  TemP1+=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP1); // Выводим заголовок
+  }   
+  if (key == btnUP && Pstatus > 0 && TePST2>0 && TemP2 < Tmax) {    
+  lcd.clear();
+  TemP2+=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP2); // Выводим заголовок
+  }   
+  if (key == btnUP && Pstatus > 0 && TePST3>0 && TemP3 < Tmax) {    
+  lcd.clear();
+  TemP3+=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP3); // Выводим заголовок
+  }   
+  if (key == btnUP && Pstatus > 0 && TePST4>0 && TemP4 < Tmax) {    
+  lcd.clear();
+  TemP4+=1;
+  lcd.setCursor (0, 0); // Задаём положение курсора
+  lcd.print ("C save="); // Выводим заголовок
+  lcd.print (TemP4); // Выводим заголовок
+  }   
+  if (key == btnDOWN && Tstatus > 0 && Tnow > Tmin) {
+    Tnow=Tnow-1; // Уменьшаем номер выбранного раздела
+    lcd.setCursor (0, 1); // Задаём положение курсора
+    lcd.print ("C nEEd="); // Не выделяем пункт меню 
+    lcd.print (Tnow);   
+  }   
+  delay (200); // Ждём 100 миллисекунд
+}
+void Temchang(){
+  int Tter=sensor.getTempInt()
+  if (Tnow-Tter>2 ){    
+    digitalWrite(ledPin3, HIGH);   // включает светодиод
+    digitalWrite(ledPin1, HIGH);   // включает светодиод
+  if (Tnow-Tter<-2 ){                // ждет секунду
+    digitalWrite(ledPin2, HIGH)
+    
+    ; 
+    digitalWrite(ledPin4, HIGH); 
+  if (Tnow-Tter<2 ){
+    digitalWrite(ledPin3, LOW);   // включает светодиод
+    digitalWrite(ledPin1, LOW);  
+  if (Tnow-Tter>-2 ){
+    digitalWrite(ledPin4, LOW);   // включает светодиод
+    digitalWrite(ledPin2, LOW);
+  }
+
+  
+}
